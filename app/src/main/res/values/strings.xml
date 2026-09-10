@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Pro Camera</string>
+    <string name="grant_camera_permission">GRANT CAMERA ACCESS</string>
+    <string name="permission_title">PRO MANUAL CAMERA</string>
+    <string name="permission_desc">Camera access is required for real-time viewfinder, manual exposure controls, and high-resolution photo capture.</string>
+    <string name="language">Language</string>
+    <string name="arabic">العربية</string>
+    <string name="english">English</string>
+    <string name="pro_settings">PRO SETTINGS</string>
+    <string name="composition_grid">COMPOSITION GRID</string>
+    <string name="self_timer">SELF-TIMER</string>
+    <string name="spirit_level">Spirit Level / Horizon</string>
+    <string name="spirit_level_sub">Real-time dual axis gyroscopic tilt</string>
+    <string name="histogram">RGB Histogram</string>
+    <string name="histogram_sub">Luminance &amp; color distribution curve</string>
+    <string name="haptics">Haptic Feedback</string>
+    <string name="haptics_sub">Tactile click on shutter &amp; level lock</string>
+    <string name="capture_params">CAPTURE PARAMETERS</string>
+    <string name="saved_path">Saved to Pictures/ProCamera</string>
+    <string name="share">Share</string>
+    <string name="close">Close</string>
+</resources>

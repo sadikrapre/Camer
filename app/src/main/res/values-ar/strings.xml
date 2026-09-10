@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">كاميرا احترافية</string>
+    <string name="grant_camera_permission">منح إذن الكاميرا</string>
+    <string name="permission_title">كاميرا احترافية يدوية</string>
+    <string name="permission_desc">يتطلب التطبيق إذن الكاميرا لتوفير محدد المنظر المباشر، وضوابط التعريض اليدوية، والتقاط صور فائقة الدقة.</string>
+    <string name="language">اللغة</string>
+    <string name="arabic">العربية</string>
+    <string name="english">English</string>
+    <string name="pro_settings">إعدادات الكاميرا الاحترافية</string>
+    <string name="composition_grid">شبكة التكوين</string>
+    <string name="self_timer">المؤقت الذاتي</string>
+    <string name="spirit_level">ميزان الأفق الرقمي</string>
+    <string name="spirit_level_sub">قياس زوايا الميلان بدقة جيروسكوبية</string>
+    <string name="histogram">الرسم البياني اللوني (RGB)</string>
+    <string name="histogram_sub">منحنى توزيع الإضاءة والألوان المباشر</string>
+    <string name="haptics">الاهتزاز التفاعلي (Haptics)</string>
+    <string name="haptics_sub">نبض لمسي عند الالتقاط وضبط الأفق</string>
+    <string name="capture_params">معلمات الالتقاط الاحترافية</string>
+    <string name="saved_path">تم الحفظ في Pictures/ProCamera</string>
+    <string name="share">مشاركة</string>
+    <string name="close">إغلاق</string>
+</resources>

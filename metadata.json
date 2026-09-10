@@ -1,0 +1,6 @@
+{
+  "name": "Pro Camera",
+  "description": "DSLR-inspired manual camera application with full manual controls (ISO, Shutter, EV, Focus, WB), lens switcher, real-time spirit level, and customizable grid overlays.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
