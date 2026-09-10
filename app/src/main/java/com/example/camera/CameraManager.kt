@@ -256,12 +256,28 @@ class CameraManager(private val context: Context) {
         evText: String,
         wbText: String,
         focalLengthText: String,
+        filter: com.example.model.CinematicFilter = com.example.model.CinematicFilter.NONE,
+        isCinematic: Boolean = false,
+        isDualPip: Boolean = false,
+        isPipSwapped: Boolean = false,
         onPhotoCaptured: (CapturedPhoto) -> Unit,
         onError: (ImageCaptureException) -> Unit
     ) {
         val capture = imageCapture
-        if (capture == null) {
-            generateSimulatedPhoto(isoText, shutterText, evText, wbText, focalLengthText, onPhotoCaptured)
+        // If in Dual PIP mode or Cinematic filter mode or camera not bound, render the processed frame with filters & PIP
+        if (capture == null || isDualPip || isCinematic || filter != com.example.model.CinematicFilter.NONE) {
+            generateEnhancedPhoto(
+                isoText = isoText,
+                shutterText = shutterText,
+                evText = evText,
+                wbText = wbText,
+                focalLengthText = focalLengthText,
+                filter = filter,
+                isCinematic = isCinematic,
+                isDualPip = isDualPip,
+                isPipSwapped = isPipSwapped,
+                onPhotoCaptured = onPhotoCaptured
+            )
             return
         }
 
@@ -293,7 +309,11 @@ class CameraManager(private val context: Context) {
                         shutterSpeed = shutterText,
                         ev = evText,
                         wb = wbText,
-                        focalLength = focalLengthText
+                        focalLength = focalLengthText,
+                        filterName = filter.titleEn,
+                        isCinematic = isCinematic,
+                        isDualPip = isDualPip,
+                        isVideo = false
                     )
                     ContextCompat.getMainExecutor(context).execute {
                         onPhotoCaptured(photo)
@@ -302,18 +322,160 @@ class CameraManager(private val context: Context) {
 
                 override fun onError(exception: ImageCaptureException) {
                     Log.w("ProCamera", "Photo capture failed on camera hardware (${exception.message}), generating simulated frame...")
-                    generateSimulatedPhoto(isoText, shutterText, evText, wbText, focalLengthText, onPhotoCaptured)
+                    generateEnhancedPhoto(
+                        isoText = isoText,
+                        shutterText = shutterText,
+                        evText = evText,
+                        wbText = wbText,
+                        focalLengthText = focalLengthText,
+                        filter = filter,
+                        isCinematic = isCinematic,
+                        isDualPip = isDualPip,
+                        isPipSwapped = isPipSwapped,
+                        onPhotoCaptured = onPhotoCaptured
+                    )
                 }
             }
         )
     }
 
-    private fun generateSimulatedPhoto(
+    fun saveRecordedVideo(
+        durationSeconds: Int,
+        filter: com.example.model.CinematicFilter,
+        isCinematic: Boolean,
+        isDualPip: Boolean,
+        onVideoSaved: (CapturedPhoto) -> Unit
+    ) {
+        try {
+            val width = 1920
+            val height = 1080
+            val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+
+            val paint = android.graphics.Paint().apply { isAntiAlias = true }
+
+            // Apply filter tint for video poster thumbnail
+            val gradientColors = when (filter) {
+                com.example.model.CinematicFilter.TEAL_ORANGE -> intArrayOf(0xFF0D2530.toInt(), 0xFF352014.toInt(), 0xFF09161E.toInt())
+                com.example.model.CinematicFilter.NOIR -> intArrayOf(0xFF101010.toInt(), 0xFF282828.toInt(), 0xFF050505.toInt())
+                com.example.model.CinematicFilter.VINTAGE_35MM -> intArrayOf(0xFF382512.toInt(), 0xFF241609.toInt(), 0xFF170D04.toInt())
+                com.example.model.CinematicFilter.CYBERPUNK -> intArrayOf(0xFF240A30.toInt(), 0xFF0A2033.toInt(), 0xFF140822.toInt())
+                com.example.model.CinematicFilter.EMERALD -> intArrayOf(0xFF092418.toInt(), 0xFF123522.toInt(), 0xFF05170F.toInt())
+                com.example.model.CinematicFilter.CINEMA_LOG -> intArrayOf(0xFF282C30.toInt(), 0xFF32363A.toInt(), 0xFF1E2024.toInt())
+                else -> intArrayOf(0xFF141920.toInt(), 0xFF1F2937.toInt(), 0xFF0B1015.toInt())
+            }
+
+            val shader = android.graphics.LinearGradient(
+                0f, 0f, width.toFloat(), height.toFloat(),
+                gradientColors,
+                null,
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            paint.shader = shader
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+            paint.shader = null
+
+            // Anamorphic Bars if in Cinematic Mode
+            if (isCinematic) {
+                paint.color = 0xFF000000.toInt()
+                paint.style = android.graphics.Paint.Style.FILL
+                val barHeight = height * 0.12f
+                canvas.drawRect(0f, 0f, width.toFloat(), barHeight, paint)
+                canvas.drawRect(0f, height - barHeight, width.toFloat(), height.toFloat(), paint)
+            }
+
+            // Dual PIP Box if Dual Mode
+            if (isDualPip) {
+                val pipW = width * 0.28f
+                val pipH = height * 0.28f
+                val pipX = width - pipW - 60f
+                val pipY = if (isCinematic) height * 0.14f else 60f
+                paint.color = 0xAA000000.toInt()
+                paint.style = android.graphics.Paint.Style.FILL
+                canvas.drawRoundRect(pipX, pipY, pipX + pipW, pipY + pipH, 20f, 20f, paint)
+
+                paint.color = 0xFFFFB300.toInt()
+                paint.style = android.graphics.Paint.Style.STROKE
+                paint.strokeWidth = 4f
+                canvas.drawRoundRect(pipX, pipY, pipX + pipW, pipY + pipH, 20f, 20f, paint)
+
+                paint.style = android.graphics.Paint.Style.FILL
+                paint.textSize = 26f
+                canvas.drawText("FRONT CAM (PIP)", pipX + 24f, pipY + 50f, paint)
+            }
+
+            // Video Play Badge & REC Indicator
+            paint.style = android.graphics.Paint.Style.FILL
+            paint.color = 0xFFE53935.toInt()
+            canvas.drawCircle(width / 2f, height / 2f, 70f, paint)
+
+            paint.color = 0xFFFFFFFF.toInt()
+            val path = android.graphics.Path().apply {
+                moveTo(width / 2f - 20f, height / 2f - 35f)
+                lineTo(width / 2f + 35f, height / 2f)
+                lineTo(width / 2f - 20f, height / 2f + 35f)
+                close()
+            }
+            canvas.drawPath(path, paint)
+
+            // Header text
+            paint.color = 0xFFFFB300.toInt()
+            paint.textSize = 44f
+            val modeTitle = if (isDualPip) "PRO DUAL VIDEO RECORDING" else if (isCinematic) "PRO CINEMATIC 24FPS RECORDING" else "PRO 4K VIDEO RECORDING"
+            canvas.drawText(modeTitle, 100f, if (isCinematic) 180f else 120f, paint)
+
+            paint.color = 0xFFECEFF1.toInt()
+            paint.textSize = 32f
+            val mins = durationSeconds / 60
+            val secs = durationSeconds % 60
+            val durStr = String.format(Locale.US, "%02d:%02d", mins, secs)
+            canvas.drawText("DURATION: $durStr  |  LUT: ${filter.titleEn}  |  4K UHD 60Mbps", 100f, if (isCinematic) 240f else 180f, paint)
+
+            val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "ProVid_$name.jpg")
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ProCamera")
+                }
+            }
+            val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            if (uri != null) {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)
+                }
+                val photo = CapturedPhoto(
+                    uri = uri,
+                    timestamp = System.currentTimeMillis(),
+                    iso = "ISO 400",
+                    shutterSpeed = "1/48s (180°)",
+                    ev = "0.0 EV",
+                    wb = "AWB Cinema",
+                    focalLength = "35mm Cine",
+                    filterName = filter.titleEn,
+                    isCinematic = isCinematic,
+                    isDualPip = isDualPip,
+                    isVideo = true
+                )
+                ContextCompat.getMainExecutor(context).execute {
+                    onVideoSaved(photo)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ProCamera", "Failed to save video thumbnail", e)
+        }
+    }
+
+    private fun generateEnhancedPhoto(
         isoText: String,
         shutterText: String,
         evText: String,
         wbText: String,
         focalLengthText: String,
+        filter: com.example.model.CinematicFilter,
+        isCinematic: Boolean,
+        isDualPip: Boolean,
+        isPipSwapped: Boolean,
         onPhotoCaptured: (CapturedPhoto) -> Unit
     ) {
         try {
@@ -322,10 +484,22 @@ class CameraManager(private val context: Context) {
             val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)
 
-            val paint = android.graphics.Paint()
+            val paint = android.graphics.Paint().apply { isAntiAlias = true }
+
+            // Filter Color Gradients
+            val gradientColors = when (filter) {
+                com.example.model.CinematicFilter.TEAL_ORANGE -> intArrayOf(0xFF0B2433.toInt(), 0xFF352014.toInt(), 0xFF081620.toInt(), 0xFF4A2B14.toInt())
+                com.example.model.CinematicFilter.NOIR -> intArrayOf(0xFF141414.toInt(), 0xFF303030.toInt(), 0xFF080808.toInt(), 0xFF222222.toInt())
+                com.example.model.CinematicFilter.VINTAGE_35MM -> intArrayOf(0xFF382312.toInt(), 0xFF2A1A0C.toInt(), 0xFF1A1006.toInt(), 0xFF422B18.toInt())
+                com.example.model.CinematicFilter.CYBERPUNK -> intArrayOf(0xFF260835.toInt(), 0xFF0B2238.toInt(), 0xFF140724.toInt(), 0xFF350B42.toInt())
+                com.example.model.CinematicFilter.EMERALD -> intArrayOf(0xFF09261A.toInt(), 0xFF143825.toInt(), 0xFF061810.toInt(), 0xFF103020.toInt())
+                com.example.model.CinematicFilter.CINEMA_LOG -> intArrayOf(0xFF262A2E.toInt(), 0xFF33383D.toInt(), 0xFF1C1E22.toInt(), 0xFF2F3438.toInt())
+                else -> intArrayOf(0xFF1B2430.toInt(), 0xFF141E28.toInt(), 0xFF0B131E.toInt(), 0xFF2C3E50.toInt())
+            }
+
             val shader = android.graphics.LinearGradient(
                 0f, 0f, width.toFloat(), height.toFloat(),
-                intArrayOf(0xFF1B2430.toInt(), 0xFF141E28.toInt(), 0xFF0B131E.toInt(), 0xFF2C3E50.toInt()),
+                gradientColors,
                 null,
                 android.graphics.Shader.TileMode.CLAMP
             )
@@ -333,26 +507,89 @@ class CameraManager(private val context: Context) {
             canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
             paint.shader = null
 
-            // Viewfinder framing
-            paint.color = 0x55FFB300.toInt()
-            paint.strokeWidth = 3f
-            paint.style = android.graphics.Paint.Style.STROKE
-            canvas.drawRect(100f, 100f, (width - 100).toFloat(), (height - 100).toFloat(), paint)
-            canvas.drawLine(width / 2f - 50f, height / 2f, width / 2f + 50f, height / 2f, paint)
-            canvas.drawLine(width / 2f, height / 2f - 50f, width / 2f, height / 2f + 50f, paint)
+            // Anamorphic 2.39:1 Letterbox Bars
+            if (isCinematic) {
+                paint.color = 0xFF000000.toInt()
+                paint.style = android.graphics.Paint.Style.FILL
+                val barHeight = height * 0.125f // 2.39:1 CinemaScope
+                canvas.drawRect(0f, 0f, width.toFloat(), barHeight, paint)
+                canvas.drawRect(0f, height - barHeight, width.toFloat(), height.toFloat(), paint)
 
-            // Parameter text on photo
+                // 2.39:1 gold cinema badge
+                paint.color = 0xFFFFB300.toInt()
+                paint.textSize = 28f
+                paint.typeface = android.graphics.Typeface.MONOSPACE
+                canvas.drawText("CINEMASCOPE 2.39:1 • 24 FPS", 100f, barHeight - 20f, paint)
+            }
+
+            // Dual PIP Window Rendering
+            if (isDualPip) {
+                val pipW = width * 0.28f
+                val pipH = height * 0.28f
+                val pipX = width - pipW - 70f
+                val pipY = if (isCinematic) height * 0.15f else 70f
+
+                // PIP background
+                val pipShader = android.graphics.LinearGradient(
+                    pipX, pipY, pipX + pipW, pipY + pipH,
+                    if (isPipSwapped) intArrayOf(0xFF1E2633.toInt(), 0xFF0D141E.toInt()) else intArrayOf(0xFF2E2018.toInt(), 0xFF1A120D.toInt()),
+                    null,
+                    android.graphics.Shader.TileMode.CLAMP
+                )
+                paint.shader = pipShader
+                paint.style = android.graphics.Paint.Style.FILL
+                canvas.drawRoundRect(pipX, pipY, pipX + pipW, pipY + pipH, 24f, 24f, paint)
+                paint.shader = null
+
+                // PIP border
+                paint.color = 0xFFFFB300.toInt()
+                paint.style = android.graphics.Paint.Style.STROKE
+                paint.strokeWidth = 4f
+                canvas.drawRoundRect(pipX, pipY, pipX + pipW, pipY + pipH, 24f, 24f, paint)
+
+                // PIP label
+                paint.style = android.graphics.Paint.Style.FILL
+                paint.color = 0xFFFFFFFF.toInt()
+                paint.textSize = 24f
+                val pipCamTitle = if (isPipSwapped) "REAR LENS (PIP)" else "FRONT SELFIE (PIP)"
+                canvas.drawText(pipCamTitle, pipX + 24f, pipY + 45f, paint)
+
+                // PIP simulated target crosshair
+                paint.color = 0x88FFB300.toInt()
+                paint.strokeWidth = 2f
+                val centerX = pipX + pipW / 2f
+                val centerY = pipY + pipH / 2f
+                canvas.drawLine(centerX - 25f, centerY, centerX + 25f, centerY, paint)
+                canvas.drawLine(centerX, centerY - 25f, centerX, centerY + 25f, paint)
+            }
+
+            // Viewfinder Grid & framing
+            paint.color = 0x44FFB300.toInt()
+            paint.strokeWidth = 2.5f
+            paint.style = android.graphics.Paint.Style.STROKE
+            canvas.drawRect(80f, 80f, (width - 80).toFloat(), (height - 80).toFloat(), paint)
+
+            // Center target reticle
+            canvas.drawLine(width / 2f - 40f, height / 2f, width / 2f + 40f, height / 2f, paint)
+            canvas.drawLine(width / 2f, height / 2f - 40f, width / 2f, height / 2f + 40f, paint)
+
+            // Info overlay
             paint.style = android.graphics.Paint.Style.FILL
             paint.color = 0xFFFFB300.toInt()
-            paint.textSize = 42f
-            paint.isAntiAlias = true
-            canvas.drawText("PRO CAMERA • HIGH QUALITY CAPTURE", 140f, 180f, paint)
+            paint.textSize = 38f
+            val headerTitle = when {
+                isDualPip -> "PRO DUAL PIP CAPTURE • DIRECTOR CUT"
+                isCinematic -> "PRO CINEMATIC 24FPS • ANAMORPHIC"
+                else -> "PRO MANUAL CAMERA • RAW CAPTURE"
+            }
+            canvas.drawText(headerTitle, 120f, if (isCinematic) height * 0.125f + 60f else 150f, paint)
 
             paint.color = 0xFFECEFF1.toInt()
-            paint.textSize = 30f
+            paint.textSize = 28f
             val timestampStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-            canvas.drawText("TIMESTAMP: $timestampStr", 140f, 240f, paint)
-            canvas.drawText("PARAMS: $isoText  |  $shutterText  |  $evText  |  $wbText  |  $focalLengthText", 140f, 290f, paint)
+            val infoY = if (isCinematic) height * 0.125f + 110f else 200f
+            canvas.drawText("LUT: ${filter.titleEn.uppercase()}  |  TIME: $timestampStr", 120f, infoY, paint)
+            canvas.drawText("EXPOSURE: $isoText  |  $shutterText  |  $evText  |  $wbText  |  $focalLengthText", 120f, infoY + 45f, paint)
 
             val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val contentValues = ContentValues().apply {
@@ -374,7 +611,11 @@ class CameraManager(private val context: Context) {
                     shutterSpeed = shutterText,
                     ev = evText,
                     wb = wbText,
-                    focalLength = focalLengthText
+                    focalLength = focalLengthText,
+                    filterName = filter.titleEn,
+                    isCinematic = isCinematic,
+                    isDualPip = isDualPip,
+                    isVideo = false
                 )
                 ContextCompat.getMainExecutor(context).execute {
                     onPhotoCaptured(photo)

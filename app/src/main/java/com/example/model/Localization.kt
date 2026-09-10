@@ -116,6 +116,41 @@ object AppStrings {
     fun wbLabel(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "توازن اللون" else "WHITE BAL"
     fun focalLabel(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "البؤري" else "FOCAL"
 
+    // Modes
+    fun shootingMode(lang: AppLanguage, mode: CameraShootingMode): String = when (mode) {
+        CameraShootingMode.PHOTO -> if (lang == AppLanguage.ARABIC) "صورة" else "PHOTO"
+        CameraShootingMode.VIDEO -> if (lang == AppLanguage.ARABIC) "فيديو" else "VIDEO"
+        CameraShootingMode.CINEMATIC -> if (lang == AppLanguage.ARABIC) "سينما" else "CINEMA"
+        CameraShootingMode.DUAL_PIP -> if (lang == AppLanguage.ARABIC) "مزدوج" else "DUAL"
+    }
+
+    // Cinematic & Filters
+    fun filtersHeader(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "فلاتر سينمائية احترافية (LUTs)" else "CINEMATIC LOOKS & LUTS"
+    fun filterName(lang: AppLanguage, filter: CinematicFilter): String = if (lang == AppLanguage.ARABIC) filter.titleAr else filter.titleEn
+    fun filterSub(lang: AppLanguage, filter: CinematicFilter): String = if (lang == AppLanguage.ARABIC) filter.subtitleAr else filter.subtitleEn
+    fun cinematicRatio(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "إطار سينمائي 2.39:1" else "2.39:1 CinemaScope"
+    fun cinematicFps(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "نمط سينمائي 24 إطار/ث" else "24 FPS Film Look"
+
+    // Dual Camera (PIP)
+    fun dualCameraTitle(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تصوير مزدوج (أمامية + خلفية)" else "Dual Camera (Front + Back)"
+    fun swapPip(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تبديل الكاميرتين" else "Swap Cameras"
+    fun mainCamera(lang: AppLanguage, isBack: Boolean): String = if (lang == AppLanguage.ARABIC) {
+        if (isBack) "الرئيسية: خلفية" else "الرئيسية: سيلفي"
+    } else {
+        if (isBack) "Main: Rear" else "Main: Front"
+    }
+    fun pipCamera(lang: AppLanguage, isBack: Boolean): String = if (lang == AppLanguage.ARABIC) {
+        if (isBack) "النافذة: أمامية" else "النافذة: خلفية"
+    } else {
+        if (isBack) "PIP: Front" else "PIP: Rear"
+    }
+
+    // Video Recording
+    fun recording(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تسجيل..." else "REC"
+    fun videoSaved(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تم حفظ الفيديو بنجاح" else "Video saved successfully"
+    fun takeDualPhoto(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "التقاط صورة مخرج مزدوجة" else "Capture Dual Shot"
+    fun recordDualVideo(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تسجيل فيديو مزدوج" else "Record Dual Video"
+
     fun simulationModeNotice(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) {
         "وضع المحاكاة نشط (المستشعر الفعلي غير متصل بالمحاكي)"
     } else {

@@ -13,10 +13,13 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -43,25 +46,32 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.camera.CameraManager
 import com.example.model.AppLanguage
+import com.example.model.CameraShootingMode
 import com.example.model.CameraUiState
 import com.example.model.CapturedPhoto
+import com.example.model.CinematicFilter
 import com.example.model.FlashMode
 import com.example.model.FocusModeOption
 import com.example.model.GridType
 import com.example.model.LensOption
 import com.example.model.ManualControlMode
+import com.example.model.PipPosition
 import com.example.model.TimerOption
 import com.example.model.WhiteBalancePreset
 import com.example.sensor.rememberSpiritLevelState
 import com.example.ui.components.BottomShutterBar
+import com.example.ui.components.CinematicFilterSelector
+import com.example.ui.components.DualPipOverlay
 import com.example.ui.components.ManualControlsBar
 import com.example.ui.components.PhotoViewerDialog
 import com.example.ui.components.QuickSettingsDialog
 import com.example.ui.components.SHUTTER_SPEEDS
 import com.example.ui.components.TopBarControls
 import com.example.ui.components.ViewfinderOverlay
+import com.example.ui.theme.AmberGold
 import com.example.ui.theme.CameraBlack
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -84,6 +94,16 @@ fun ProCameraScreen(
 
     // Flash animation on photo capture
     val flashAnim = remember { Animatable(0f) }
+
+    // Video recording timer loop
+    LaunchedEffect(uiState.isRecordingVideo) {
+        if (uiState.isRecordingVideo) {
+            while (isActive && uiState.isRecordingVideo) {
+                delay(1000)
+                uiState = uiState.copy(videoDurationSeconds = uiState.videoDurationSeconds + 1)
+            }
+        }
+    }
 
     // Haptic feedback helper
     val triggerHaptic = {
@@ -159,6 +179,10 @@ fun ProCameraScreen(
             evText = evText,
             wbText = wbText,
             focalLengthText = focalText,
+            filter = uiState.selectedFilter,
+            isCinematic = uiState.isCinematicAnamorphic || uiState.shootingMode == CameraShootingMode.CINEMATIC,
+            isDualPip = uiState.isDualPipActive || uiState.shootingMode == CameraShootingMode.DUAL_PIP,
+            isPipSwapped = uiState.isPipSwapped,
             onPhotoCaptured = { photo ->
                 uiState = uiState.copy(
                     isCapturing = false,
@@ -176,19 +200,48 @@ fun ProCameraScreen(
         )
     }
 
-    val onShutterPressed = {
-        if (uiState.timerOption != TimerOption.OFF) {
-            coroutineScope.launch {
-                for (remaining in uiState.timerOption.seconds downTo 1) {
-                    uiState = uiState.copy(timerCountdownSeconds = remaining)
+    // Toggle video recording
+    val toggleVideoRecording = {
+        if (uiState.isRecordingVideo) {
+            val duration = uiState.videoDurationSeconds
+            cameraManager.saveRecordedVideo(
+                durationSeconds = duration,
+                filter = uiState.selectedFilter,
+                isCinematic = uiState.isCinematicAnamorphic || uiState.shootingMode == CameraShootingMode.CINEMATIC,
+                isDualPip = uiState.isDualPipActive || uiState.shootingMode == CameraShootingMode.DUAL_PIP,
+                onVideoSaved = { videoPhoto ->
+                    uiState = uiState.copy(
+                        isRecordingVideo = false,
+                        videoDurationSeconds = 0,
+                        lastCapturedPhoto = videoPhoto
+                    )
                     triggerHaptic()
-                    delay(1000)
                 }
-                uiState = uiState.copy(timerCountdownSeconds = null)
+            )
+        } else {
+            uiState = uiState.copy(isRecordingVideo = true, videoDurationSeconds = 0)
+            triggerHaptic()
+        }
+    }
+
+    val onShutterPressed = {
+        val isVideoMode = uiState.shootingMode == CameraShootingMode.VIDEO || uiState.shootingMode == CameraShootingMode.CINEMATIC
+        if (isVideoMode) {
+            toggleVideoRecording()
+        } else {
+            if (uiState.timerOption != TimerOption.OFF) {
+                coroutineScope.launch {
+                    for (remaining in uiState.timerOption.seconds downTo 1) {
+                        uiState = uiState.copy(timerCountdownSeconds = remaining)
+                        triggerHaptic()
+                        delay(1000)
+                    }
+                    uiState = uiState.copy(timerCountdownSeconds = null)
+                    executePhotoCapture()
+                }
+            } else {
                 executePhotoCapture()
             }
-        } else {
-            executePhotoCapture()
         }
     }
 
@@ -201,7 +254,7 @@ fun ProCameraScreen(
                 .background(CameraBlack)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 1. Top Bar Controls (Bilingual Toggle, Flash, Lenses, Grids, Timer, Camera Flip)
+                // 1. Top Bar Controls (Bilingual Toggle, Flash, Lenses, Grids, Timer, Camera Flip, Filters, Cinematic, Dual PIP)
                 TopBarControls(
                     language = uiState.language,
                     onLanguageToggle = {
@@ -248,7 +301,48 @@ fun ProCameraScreen(
                         uiState = uiState.copy(isBackCamera = newFacing)
                         triggerHaptic()
                     },
+                    selectedFilter = uiState.selectedFilter,
+                    isFilterSelectorOpen = uiState.showFilterSelector,
+                    onToggleFilterSelector = {
+                        uiState = uiState.copy(showFilterSelector = !uiState.showFilterSelector)
+                        triggerHaptic()
+                    },
+                    isCinematicActive = uiState.isCinematicAnamorphic || uiState.shootingMode == CameraShootingMode.CINEMATIC,
+                    onToggleCinematic = {
+                        val next = !uiState.isCinematicAnamorphic
+                        uiState = uiState.copy(
+                            isCinematicAnamorphic = next,
+                            shootingMode = if (next) CameraShootingMode.CINEMATIC else CameraShootingMode.PHOTO
+                        )
+                        triggerHaptic()
+                    },
+                    isDualPipActive = uiState.isDualPipActive || uiState.shootingMode == CameraShootingMode.DUAL_PIP,
+                    onToggleDualPip = {
+                        val next = !uiState.isDualPipActive
+                        uiState = uiState.copy(
+                            isDualPipActive = next,
+                            shootingMode = if (next) CameraShootingMode.DUAL_PIP else CameraShootingMode.PHOTO
+                        )
+                        triggerHaptic()
+                    },
+                    isRecording = uiState.isRecordingVideo,
+                    recordingDurationSeconds = uiState.videoDurationSeconds,
                     modifier = Modifier.statusBarsPadding()
+                )
+
+                // Cinematic Filter Carousel Drawer
+                CinematicFilterSelector(
+                    language = uiState.language,
+                    visible = uiState.showFilterSelector,
+                    selectedFilter = uiState.selectedFilter,
+                    onFilterSelected = { filter ->
+                        uiState = uiState.copy(selectedFilter = filter)
+                        triggerHaptic()
+                    },
+                    onClose = {
+                        uiState = uiState.copy(showFilterSelector = false)
+                        triggerHaptic()
+                    }
                 )
 
                 // 2. Viewfinder Window (Live Camera + Overlays)
@@ -307,7 +401,7 @@ fun ProCameraScreen(
                                 cameraManager.startCamera(
                                     lifecycleOwner = lifecycleOwner,
                                     previewView = this,
-                                    useBackCamera = uiState.isBackCamera
+                                    useBackCamera = if (uiState.isPipSwapped) !uiState.isBackCamera else uiState.isBackCamera
                                 ) { cameraInfo ->
                                     val zoomState = cameraInfo.zoomState.value
                                     if (zoomState != null) {
@@ -323,11 +417,29 @@ fun ProCameraScreen(
                             cameraManager.startCamera(
                                 lifecycleOwner = lifecycleOwner,
                                 previewView = previewView,
-                                useBackCamera = uiState.isBackCamera
+                                useBackCamera = if (uiState.isPipSwapped) !uiState.isBackCamera else uiState.isBackCamera
                             )
                         },
                         modifier = Modifier.fillMaxSize()
                     )
+
+                    // Real-time Cinematic LUT Color Grading Tint Overlay
+                    if (uiState.selectedFilter != CinematicFilter.NONE) {
+                        val filterColor = when (uiState.selectedFilter) {
+                            CinematicFilter.TEAL_ORANGE -> Color(0xFF00ADB5).copy(alpha = 0.14f)
+                            CinematicFilter.NOIR -> Color(0xFF000000).copy(alpha = 0.38f)
+                            CinematicFilter.VINTAGE_35MM -> Color(0xFFFFB300).copy(alpha = 0.16f)
+                            CinematicFilter.CYBERPUNK -> Color(0xFFE040FB).copy(alpha = 0.15f)
+                            CinematicFilter.EMERALD -> Color(0xFF00E676).copy(alpha = 0.12f)
+                            CinematicFilter.CINEMA_LOG -> Color(0xFF90A4AE).copy(alpha = 0.18f)
+                            else -> Color.Transparent
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(filterColor)
+                        )
+                    }
 
                     // Viewfinder Overlays (Grid, Spirit Level, EV ladder, Histogram, Focus Reticle)
                     ViewfinderOverlay(
@@ -340,6 +452,73 @@ fun ProCameraScreen(
                         focusLocked = uiState.focusLocked,
                         evIndex = uiState.evCompensationIndex,
                         evStep = uiState.evStep
+                    )
+
+                    // Cinematic 2.39:1 Anamorphic Letterbox Bars
+                    val isCinematic = uiState.isCinematicAnamorphic || uiState.shootingMode == CameraShootingMode.CINEMATIC
+                    if (isCinematic) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(0.12f)
+                                    .background(Color.Black),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(start = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "2.39:1 CINEMASCOPE",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = AmberGold,
+                                        fontFamily = FontFamily.Monospace,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "• 24 FPS",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.weight(0.76f))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(0.12f)
+                                    .background(Color.Black)
+                            )
+                        }
+                    }
+
+                    // Dual Camera (Front + Back) Floating PIP Window
+                    val isDualActive = uiState.isDualPipActive || uiState.shootingMode == CameraShootingMode.DUAL_PIP
+                    DualPipOverlay(
+                        language = uiState.language,
+                        isPipActive = isDualActive,
+                        isPipSwapped = uiState.isPipSwapped,
+                        pipPosition = uiState.pipPosition,
+                        onSwapPip = {
+                            uiState = uiState.copy(isPipSwapped = !uiState.isPipSwapped)
+                            triggerHaptic()
+                        },
+                        onCyclePosition = {
+                            val next = when (uiState.pipPosition) {
+                                PipPosition.TOP_END -> PipPosition.BOTTOM_END
+                                PipPosition.BOTTOM_END -> PipPosition.BOTTOM_START
+                                PipPosition.BOTTOM_START -> PipPosition.TOP_START
+                                PipPosition.TOP_START -> PipPosition.TOP_END
+                            }
+                            uiState = uiState.copy(pipPosition = next)
+                            triggerHaptic()
+                        },
+                        isRecording = uiState.isRecordingVideo
                     )
 
                     // Capture Flash Effect Overlay
@@ -408,12 +587,26 @@ fun ProCameraScreen(
                     }
                 )
 
-                // 4. Bottom Shutter Bar
+                // 4. Bottom Shutter Bar with Mode Selector & Quick Photo Snap
                 BottomShutterBar(
+                    language = uiState.language,
+                    shootingMode = uiState.shootingMode,
+                    onShootingModeChanged = { mode ->
+                        val isDual = mode == CameraShootingMode.DUAL_PIP
+                        val isCinema = mode == CameraShootingMode.CINEMATIC
+                        uiState = uiState.copy(
+                            shootingMode = mode,
+                            isDualPipActive = isDual,
+                            isCinematicAnamorphic = isCinema
+                        )
+                        triggerHaptic()
+                    },
+                    isRecordingVideo = uiState.isRecordingVideo,
                     lastCapturedPhoto = uiState.lastCapturedPhoto,
                     isCapturing = uiState.isCapturing,
                     timerCountdown = uiState.timerCountdownSeconds,
                     onShutterClick = { onShutterPressed() },
+                    onQuickSnapPhoto = { executePhotoCapture() },
                     onThumbnailClick = {
                         viewingPhoto = uiState.lastCapturedPhoto
                     },

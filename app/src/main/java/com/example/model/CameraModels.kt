@@ -52,6 +52,37 @@ enum class TimerOption(val seconds: Int, val label: String) {
     TEN(10, "10s")
 }
 
+enum class CameraShootingMode(val labelEn: String, val labelAr: String) {
+    PHOTO("PHOTO", "صورة"),
+    VIDEO("VIDEO", "فيديو"),
+    CINEMATIC("CINEMA", "سينمائي"),
+    DUAL_PIP("DUAL PIP", "كاميرا مزدوجة")
+}
+
+enum class CinematicFilter(
+    val id: String,
+    val titleEn: String,
+    val titleAr: String,
+    val subtitleEn: String,
+    val subtitleAr: String,
+    val primaryColorHex: Long
+) {
+    NONE("none", "Natural", "طبيعي", "Standard Clean Look", "ألوان محايدة نقية", 0xFFE0E0E0),
+    TEAL_ORANGE("teal_orange", "Teal & Orange", "تيل وبرتقالي", "Hollywood Blockbuster", "التباين السينمائي الهوليودي", 0xFF00ADB5),
+    NOIR("noir", "Classic Noir", "نوير كلاسيكي", "High Contrast Monochrome", "أبيض وأسود فائق التباين", 0xFFEEEEEE),
+    VINTAGE_35MM("vintage", "35mm Film", "فيلم 35 ملم", "Warm Analog Kodak Glow", "دفء شريط السينما التناظري", 0xFFFFB300),
+    CYBERPUNK("cyberpunk", "Cyberpunk", "سايبربانك", "Neon Magenta & Cyan", "ألوان نيون مستقبلية حادة", 0xFFE040FB),
+    EMERALD("emerald", "Emerald", "زمرد سينمائي", "Moody Nordic Forest", "درجات خضراء باردة درامية", 0xFF00E676),
+    CINEMA_LOG("flat_log", "Cinema Flat LOG", "LOG سينمائي", "Maximum Dynamic Range", "نطاق ديناميكي مسطح للمونتاج", 0xFF90A4AE)
+}
+
+enum class PipPosition {
+    TOP_START,
+    TOP_END,
+    BOTTOM_START,
+    BOTTOM_END
+}
+
 data class CapturedPhoto(
     val uri: Uri,
     val timestamp: Long = System.currentTimeMillis(),
@@ -59,12 +90,17 @@ data class CapturedPhoto(
     val shutterSpeed: String = "1/125s",
     val ev: String = "0.0 EV",
     val wb: String = "AWB",
-    val focalLength: String = "26mm (1.0×)"
+    val focalLength: String = "26mm (1.0×)",
+    val filterName: String = "Natural",
+    val isCinematic: Boolean = false,
+    val isDualPip: Boolean = false,
+    val isVideo: Boolean = false
 )
 
 data class CameraUiState(
     val isInitialized: Boolean = false,
     val isBackCamera: Boolean = true,
+    val shootingMode: CameraShootingMode = CameraShootingMode.PHOTO,
     val flashMode: FlashMode = FlashMode.AUTO,
     val selectedLens: LensOption = LensOption.WIDE,
     val currentZoomRatio: Float = 1.0f,
@@ -83,6 +119,19 @@ data class CameraUiState(
     val selectedWbPreset: WhiteBalancePreset = WhiteBalancePreset.AUTO,
     val focusMode: FocusModeOption = FocusModeOption.AF_C,
     val manualFocusDistance: Float = 0.5f, // 0.0 (macro) to 1.0 (infinity)
+    val selectedFilter: CinematicFilter = CinematicFilter.NONE,
+    val showFilterSelector: Boolean = false,
+    // Dual Camera / PIP Mode
+    val isDualPipActive: Boolean = false,
+    val isPipSwapped: Boolean = false, // false = Main is Back, Pip is Front; true = Main is Front, Pip is Back
+    val pipPosition: PipPosition = PipPosition.TOP_END,
+    // Video Recording
+    val isRecordingVideo: Boolean = false,
+    val videoDurationSeconds: Int = 0,
+    // Cinematic Mode settings
+    val isCinematicAnamorphic: Boolean = false,
+    val filmFps: Int = 24,
+    // Photos & feedback
     val lastCapturedPhoto: CapturedPhoto? = null,
     val isCapturing: Boolean = false,
     val focusPoint: Pair<Float, Float>? = null, // Normalized x, y in viewfinder
