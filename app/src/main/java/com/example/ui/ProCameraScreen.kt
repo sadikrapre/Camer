@@ -613,7 +613,13 @@ fun ProCameraScreen(
                     onOpenSettingsClick = {
                         showSettingsDialog = true
                         triggerHaptic()
-                    }
+                    },
+                    onFlipCamera = {
+                        val newFacing = !uiState.isBackCamera
+                        uiState = uiState.copy(isBackCamera = newFacing)
+                        triggerHaptic()
+                    },
+                    isBackCamera = uiState.isBackCamera
                 )
             }
 

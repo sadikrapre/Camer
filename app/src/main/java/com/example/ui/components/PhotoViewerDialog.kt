@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +23,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -73,7 +77,7 @@ fun PhotoViewerDialog(
                 .fillMaxSize()
                 .background(CameraBlack)
         ) {
-            // High-resolution photo display
+            // High-resolution photo display or Video Thumbnail
             Image(
                 painter = rememberAsyncImagePainter(model = photo.uri),
                 contentDescription = "Full photo preview",
@@ -82,6 +86,43 @@ fun PhotoViewerDialog(
                     .fillMaxSize()
                     .align(Alignment.Center)
             )
+
+            // If it's a recorded video, show a big play button overlay to open the video player
+            if (photo.isVideo) {
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE53935).copy(alpha = 0.85f))
+                        .border(2.dp, Color.White, CircleShape)
+                        .align(Alignment.Center)
+                        .clickable {
+                            try {
+                                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(photo.uri, "video/mp4")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(viewIntent)
+                            } catch (_: Exception) {
+                                val anyIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(photo.uri, "video/*")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                try {
+                                    context.startActivity(anyIntent)
+                                } catch (_: Exception) {}
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = AppStrings.playVideo(language),
+                        tint = Color.White,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+            }
 
             // Top control bar
             Row(
@@ -121,7 +162,7 @@ fun PhotoViewerDialog(
                 IconButton(
                     onClick = {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "image/jpeg"
+                            type = if (photo.isVideo) "video/mp4" else "image/jpeg"
                             putExtra(Intent.EXTRA_STREAM, photo.uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }

@@ -134,6 +134,12 @@ object AppStrings {
     // Dual Camera (PIP)
     fun dualCameraTitle(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تصوير مزدوج (أمامية + خلفية)" else "Dual Camera (Front + Back)"
     fun swapPip(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تبديل الكاميرتين" else "Swap Cameras"
+    fun flipCamera(lang: AppLanguage, isBack: Boolean): String = if (lang == AppLanguage.ARABIC) {
+        if (isBack) "الكاميرا الخلفية" else "الكاميرا الأمامية"
+    } else {
+        if (isBack) "Rear Camera" else "Front Camera"
+    }
+    fun switchCamera(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تبديل الكاميرا" else "Switch Camera"
     fun mainCamera(lang: AppLanguage, isBack: Boolean): String = if (lang == AppLanguage.ARABIC) {
         if (isBack) "الرئيسية: خلفية" else "الرئيسية: سيلفي"
     } else {
@@ -147,7 +153,9 @@ object AppStrings {
 
     // Video Recording
     fun recording(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تسجيل..." else "REC"
-    fun videoSaved(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تم حفظ الفيديو بنجاح" else "Video saved successfully"
+    fun videoSaved(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تم حفظ الفيديو بنجاح (MP4)" else "Video saved successfully (MP4)"
+    fun playVideo(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تشغيل الفيديو" else "Play Video"
+    fun videoFileIndicator(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "ملف فيديو MP4 محفوظ" else "Saved MP4 Video"
     fun takeDualPhoto(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "التقاط صورة مخرج مزدوجة" else "Capture Dual Shot"
     fun recordDualVideo(lang: AppLanguage): String = if (lang == AppLanguage.ARABIC) "تسجيل فيديو مزدوج" else "Record Dual Video"
 

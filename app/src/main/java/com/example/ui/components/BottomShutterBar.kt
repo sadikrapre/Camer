@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,6 +79,8 @@ fun BottomShutterBar(
     onQuickSnapPhoto: () -> Unit,
     onThumbnailClick: () -> Unit,
     onOpenSettingsClick: () -> Unit,
+    onFlipCamera: () -> Unit = {},
+    isBackCamera: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -283,22 +286,46 @@ fun BottomShutterBar(
                 }
             }
 
-            // Right: Quick Settings / Pro Info Trigger
-            IconButton(
-                onClick = onOpenSettingsClick,
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(CircleShape)
-                    .background(CameraDarkSurface)
-                    .border(1.5.dp, CameraBorder, CircleShape)
-                    .testTag("pro_settings_button")
+            // Right: Flip Camera button + Quick Settings
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Tune,
-                    contentDescription = "Camera Settings",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
+                // Switch Camera (Front/Rear) quick thumb access
+                IconButton(
+                    onClick = onFlipCamera,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(CameraDarkSurface)
+                        .border(1.5.dp, if (isBackCamera) AmberGold.copy(alpha = 0.6f) else CameraBorder, CircleShape)
+                        .testTag("bottom_camera_switch_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Cameraswitch,
+                        contentDescription = AppStrings.switchCamera(language),
+                        tint = if (isBackCamera) AmberGold else TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Quick Settings / Pro Info Trigger
+                IconButton(
+                    onClick = onOpenSettingsClick,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(CameraDarkSurface)
+                        .border(1.5.dp, CameraBorder, CircleShape)
+                        .testTag("pro_settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Camera Settings",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
